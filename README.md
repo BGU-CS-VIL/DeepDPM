@@ -1,5 +1,5 @@
 # DeepDPM
-A placeholder for upcoming code for the CVPR paper "Deep Clustering With an Unknown Number of Clusters".
+A placeholder for upcoming code for our CVPR 2022 paper "DeepDPM: Deep Clustering With an Unknown Number of Clusters".
 Code coming soon...
 
 ## Citation
@@ -12,7 +12,7 @@ If you use this code for your work, please cite the following:
 
 ```
 @inproceedings{Ronen:CVPR:2022:DeepDPM,
-  title={Deep Clustering With An Unknown Number of Clusters},
+  title={DeepDPM: Deep Clustering With An Unknown Number of Clusters},
   author={Ronen, Meitar and Finder, Shahaf and  Freifeld, Oren},
   booktitle={Conference on Computer Vision and Pattern Recognition},
   year={2022}
