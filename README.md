@@ -1,1 +1,3 @@
 # DeepDPM
+A placeholder for upcoming code for the CVPR paper "Deep Clustering With an Unknown Number of Clusters".
+Code coming soon...
