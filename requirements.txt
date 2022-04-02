@@ -1,0 +1,15 @@
+joblib==1.1.0
+kmeans_pytorch==0.3
+matplotlib==3.5.1
+numpy==1.20.3
+pandas==1.4.1
+Pillow==9.0.1
+pytorch_lightning==1.2.10
+scikit_learn==1.0.2
+scipy==1.7.3
+seaborn==0.11.2
+torch==1.11.0
+torchvision==0.12.0
+tqdm==4.63.0
+umap==0.1.1
+umap_learn==0.5.2
