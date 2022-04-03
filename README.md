@@ -1,6 +1,6 @@
 # DeepDPM: Deep Clustering With An Unknown Number of Clusters
 This repo contains the implementation of our paper:
-> [**DeepDPM: Deep Clustering With An Unknown Number of Clusters**]()
+> [**DeepDPM: Deep Clustering With An Unknown Number of Clusters**](https://arxiv.org/abs/2203.14309)
 >
 > [Meitar Ronen](https://www.linkedin.com/in/meitar-ronen/), [Shahaf Finder](https://shahaffind.github.io) and [Oren Freifeld](https://www.cs.bgu.ac.il/~orenfr/index.htm).
 
@@ -28,7 +28,7 @@ Examples of the clusters found by DeepDPM on the ImageNet Dataset:
 
 
 ## Introduction
-DeepDPM is a nonparametric deep-clustering method which unlike most deep clustering methods, does not require knowing the number of clusters, K; rather, it infers it as a part of the overall learning. Using a split/merge framework to chang the clusters number adaptively and a novel loss, our proposed method outperforms existing (both classical and deep) nonparametric methods.
+DeepDPM is a nonparametric deep-clustering method which unlike most deep clustering methods, does not require knowing the number of clusters, K; rather, it infers it as a part of the overall learning. Using a split/merge framework to change the clusters number adaptively and a novel loss, our proposed method outperforms existing (both classical and deep) nonparametric methods.
 
 While the few existing deep nonparametric methods lack scalability, we show ours by being the first such method that reports its performance on ImageNet.
 
