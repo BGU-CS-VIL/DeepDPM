@@ -2,7 +2,7 @@
 This repo contains the implementation of our paper:
 > [**DeepDPM: Deep Clustering With An Unknown Number of Clusters**]()
 >
-> [Meitar Ronen](https://www.linkedin.com/in/meitar-ronen/), [Shahaf Finder](shahaffind.github.io) and [Oren Freifeld](https://www.cs.bgu.ac.il/~orenfr/index.htm).
+> [Meitar Ronen](https://www.linkedin.com/in/meitar-ronen/), [Shahaf Finder](https://shahaffind.github.io) and [Oren Freifeld](https://www.cs.bgu.ac.il/~orenfr/index.htm).
 
 - Accepted at CVPR 2022 ([paper \& supp mat](https://arxiv.org/abs/2203.14309)).
 
