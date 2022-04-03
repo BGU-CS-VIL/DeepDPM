@@ -4,13 +4,17 @@ This repo contains the implementation of our paper:
 >
 > [Meitar Ronen](https://www.linkedin.com/in/meitar-ronen/), [Shahaf Finder]() and [Oren Freifeld](https://www.cs.bgu.ac.il/~orenfr/index.htm).
 
-- Accepted at CVPR 2022 ([paper](), [supp mat]()).
+- Accepted at CVPR 2022 ([paper \& supp mat](https://arxiv.org/abs/2203.14309)).
 
+DeepDPM clustering example on 2D data.<br />
+On the left: DeepDPM's predicted clusters' assignments, centers and covariances. On the right: Clusters colored by the GT labels, and the net's decision boundary.
 <br>
 <p align="center">
 <img src="clustering_example.gif" width="750" height="600">
 </p>
 
+
+Examples of the clusters found by DeepDPM on the ImageNet Dataset:
 
 
 ![Examples of the clusters found by DeepDPM on the ImageNet dataset](ImageNet_cluster_examples/cluster_examples.jpg?raw=true "Examples of the clusters found by DeepDPM on the ImageNet dataset")
