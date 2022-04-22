@@ -24,7 +24,8 @@ Examples of the clusters found by DeepDPM on the ImageNet Dataset:
 1. [Introduction](#Introduction)  
 2. [Installation](#Installation)
 3. [Training](#Training)
-4. [Citation](#Citation)
+4. [Inference](#Inference)
+5. [Citation](#Citation)
 
 
 ## Introduction
@@ -101,6 +102,9 @@ python DeepDPM_alternations.py --latent_dim 10 --lambda_ 0.05 --beta 0.01 --data
 ```
 python DeepDPM_alternations.py --latent_dim 10 --lambda_ 0.05 --beta 0.01 --dataset imagenet_50_imb --init_k 10  --alternate --init_cluster_net_using_centers --reinit_net_at_alternation --dir ./pretrained_embeddings/MOCO/ --prior_nu 12 --pretrain_path ./saved_models/ae_weights/imagenet_50_imb --prior_sigma_choice data_std --prior_sigma_scale 0.0001 --number_of_ae_alternations 4
 ```
+
+## Inference
+For loading a pretrained model from a saved checkpoint, and for an inference example, see: scripts\DeepDPM_load_from_checkpoint.py
 
 ## Citation
 
