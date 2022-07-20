@@ -1,10 +1,10 @@
 # DeepDPM: Deep Clustering With An Unknown Number of Clusters
-This repo contains the implementation of our paper:
+This repo contains the official implementation of our CVPR 2022 paper:
 > [**DeepDPM: Deep Clustering With An Unknown Number of Clusters**](https://arxiv.org/abs/2203.14309)
 >
 > [Meitar Ronen](https://www.linkedin.com/in/meitar-ronen/), [Shahaf Finder](https://shahaffind.github.io) and [Oren Freifeld](https://www.cs.bgu.ac.il/~orenfr/index.htm).
 
-- Accepted at CVPR 2022 ([paper \& supp mat](https://arxiv.org/abs/2203.14309)).
+- [paper \& supp mat](https://arxiv.org/abs/2203.14309).
 
 DeepDPM clustering example on 2D data.<br />
 On the left: DeepDPM's predicted clusters' assignments, centers and covariances. On the right: Clusters colored by the GT labels, and the net's decision boundary.
