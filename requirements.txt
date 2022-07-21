@@ -1,6 +1,7 @@
 joblib==1.1.0
 kmeans_pytorch==0.3
 matplotlib==3.5.1
+neptune-client==0.16.1
 numpy==1.20.3
 pandas==1.4.1
 Pillow==9.0.1
