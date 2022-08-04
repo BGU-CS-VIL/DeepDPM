@@ -13,21 +13,18 @@ import os
 
 
 class FeatureExtractor(nn.Module):
-    def __init__(self, args, feature_extractor=False, AE=True):
+    def __init__(self, args, input_dim):
         super(FeatureExtractor, self).__init__()
         self.args = args
         self.feature_extractor = None
         self.autoencoder = None
         self.latent_dim = None
-        if feature_extractor:
-            self.feature_extractor = self.get_fe_model()
-            self.latent_dim = self.feature_extractor.features_dim
-        if AE:
-            if self.args.dataset == "usps":
-                self.autoencoder = ConvAutoEncoder(args, input_dim=self.latent_dim or args.input_dim)
-            else:
-                self.autoencoder = AutoEncoder(args, input_dim=self.latent_dim or args.input_dim)
-            self.latent_dim = self.autoencoder.latent_dim
+        self.input_dim = input_dim
+        if self.args.dataset == "usps":
+            self.autoencoder = ConvAutoEncoder(args, input_dim=self.input_dim)
+        else:
+            self.autoencoder = AutoEncoder(args, input_dim=self.input_dim)
+        self.latent_dim = self.autoencoder.latent_dim
 
     def forward(self, X, latent=False):
         if self.feature_extractor:

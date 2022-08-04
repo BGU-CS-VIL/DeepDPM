@@ -105,8 +105,6 @@ class ClusterNetModel(pl.LightningModule):
             self.merge_performed = False
 
     def on_validation_epoch_start(self):
-        if self.split_performed or self.merge_performed:
-            self.update_params_split_merge()
         self.initialize_net_params(stage="val")
         return super().on_validation_epoch_start()
 
@@ -527,7 +525,7 @@ class ClusterNetModel(pl.LightningModule):
                     self.perform_merge(mus_to_merge, highest_ll_mus)
 
             # compute nmi, unique z, etc.
-            if self.hparams.log_metrics_at_train:
+            if self.hparams.log_metrics_at_train and self.hparams.evaluate_every_n_epochs > 0 and self.current_epoch % self.hparams.evaluate_every_n_epochs == 0:
                 self.log_clustering_metrics()
             with torch.no_grad():
                 if self.hparams.log_emb == "every_n_epochs" and (self.current_epoch % self.hparams.log_emb_every == 0 or self.current_epoch < 2):
@@ -551,12 +549,16 @@ class ClusterNetModel(pl.LightningModule):
                             self.plot_utils.plot_cluster_and_decision_boundaries(samples=self.codes, labels=self.train_resp.argmax(-1), gt_labels=self.train_gt, net_centers=self.mus, net_covs=self.covs, n_epoch=self.current_epoch, cluster_net=self)
                     if self.current_epoch in (0, 1, 2, 3, 4, 5, 10, 100, 200, 300, 400, 500, 549, self.hparams.start_sub_clustering, self.hparams.start_sub_clustering+1) or self.split_performed or self.merge_performed:
                         self.plot_histograms(for_thesis=True)
+        
+        if self.split_performed or self.merge_performed:
+            self.update_params_split_merge()
+            print("Current number of clusters: ", self.K)
 
     def validation_epoch_end(self, outputs):
         # Take mean of all batch losses
         avg_loss = torch.stack([x["loss"] for x in outputs]).mean()
         self.log("cluster_net_train/val/avg_val_loss", avg_loss)
-        if self.current_training_stage != "gather_codes":
+        if self.current_training_stage != "gather_codes" and self.hparams.evaluate_every_n_epochs and self.current_epoch % self.hparams.evaluate_every_n_epochs == 0:
             z = self.val_resp.argmax(axis=1).cpu()
             nmi = normalized_mutual_info_score(
                 # curr_clusters_assign,
@@ -983,7 +985,7 @@ class ClusterNetModel(pl.LightningModule):
             help="The hidden layers in the clusternet. Defaults to [50, 50].",
         )
         parser.add_argument(
-            "--transform",
+            "--transform_input_data",
             type=str,
             default="normalize",
             choices=["normalize", "min_max", "standard", "standard_normalize", "None", None],
@@ -1184,9 +1186,9 @@ class ClusterNetModel(pl.LightningModule):
             default=0.0001,
         )
         parser.add_argument(
-            "--prior_nu",
+            "--NIW_prior_nu",
             type=float,
-            default=12.0,
+            default=None,
             help="Need to be at least codes_dim + 1",
         )
         parser.add_argument(
@@ -1237,11 +1239,7 @@ class ClusterNetModel(pl.LightningModule):
             default="isotropic",
             choices=["diag_NIG", "isotropic", "KL_GMM_2"],
         )
-        parser.add_argument(
-            "--imbalanced_train",
-            type=bool,
-            default=False,
-        )
+        
         parser.add_argument(
             "--use_priors_for_net_params_init",
             type=bool,
@@ -1257,5 +1255,11 @@ class ClusterNetModel(pl.LightningModule):
             "--log_metrics_at_train",
             type=bool,
             default=False,
+        )
+        parser.add_argument(
+            "--evaluate_every_n_epochs",
+            type=int,
+            default=5,
+            help="How often to evaluate the net"
         )
         return parser

@@ -11,11 +11,11 @@ import math
 
 
 class AutoEncoder(nn.Module):
-    def __init__(self, args, input_dim=None):
+    def __init__(self, args, input_dim):
         super(AutoEncoder, self).__init__()
         self.args = args
-        self.input_dim = input_dim or args.input_dim
-        self.output_dim = self.input_dim
+        self.input_dim = input_dim
+        self.output_dim = input_dim
         self.latent_dim = args.latent_dim
         self.hidden_dims = args.hidden_dims
         self.hidden_dims.append(self.latent_dim)
@@ -113,10 +113,10 @@ class UnFlatten(torch.nn.Module):
 
 
 class ConvAutoEncoder(nn.Module):
-    def __init__(self, args, input_dim=None):
+    def __init__(self, args, input_dim):
         super(ConvAutoEncoder, self).__init__()
         self.args = args
-        self.input_dim = input_dim or args.input_dim
+        self.input_dim = input_dim
         self.output_dim = self.input_dim
         self.latent_dim = args.latent_dim
 

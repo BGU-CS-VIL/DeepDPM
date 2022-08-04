@@ -55,10 +55,10 @@ def make_embbedings():
         data = None
 
     train_loader, val_loader = data.get_loaders(args)
-    args.input_dim = data.input_dim
+    args.input_dim = data.data_dim
 
     # Main body
-    ae = AE_ClusterPipeline(args=args, logger=None)
+    ae = AE_ClusterPipeline(args=args, logger=None, input_dim=data.data_dim)
     ae.load_state_dict(torch.load(args.ae_pretrain_path))
     ae.eval()
     ae.freeze()

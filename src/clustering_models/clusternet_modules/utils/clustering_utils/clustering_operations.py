@@ -283,16 +283,17 @@ def compute_mus(codes, logits, pi, K, how_to_compute_mu, use_priors=True, prior=
 
 
 def compute_covs(codes, logits, K, mus, use_priors=True, prior=None):
+    from torch.distributions.constraints import positive_definite
     data_covs = compute_data_covs_soft_assignment(codes=codes, logits=logits, K=K, mus=mus, prior_name=prior.name if prior else None)
-    if use_priors:
-        covs = []
-        r = logits.sum(axis=0)
-        for k in range(K):
+    covs = []
+    r = logits.sum(axis=0)
+    for k in range(K):
+        if use_priors:
             cov_k = prior.compute_post_cov(r[k], mus[k], data_covs[k])
-            covs.append(cov_k)
-        covs = torch.stack(covs)
-    else:
-        covs = torch.stack([torch.eye(mus.shape[1]) * data_covs[k] for k in range(K)])
+        if not positive_definite.check(cov_k):
+            cov_k.add_(0.00001 * torch.eye(cov_k.shape[1]))
+        covs.append(cov_k)
+    covs = torch.stack(covs)
     return covs
 
 

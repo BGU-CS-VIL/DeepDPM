@@ -5,6 +5,7 @@ numpy==1.20.3
 pandas==1.4.1
 Pillow==9.0.1
 pytorch_lightning==1.2.10
+neptune-client==0.16.1
 scikit_learn==1.0.2
 scipy==1.7.3
 seaborn==0.11.2

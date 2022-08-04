@@ -9,16 +9,16 @@ import torch
 import argparse
 import pytorch_lightning as pl
 from pytorch_lightning.loggers import NeptuneLogger
+from pytorch_lightning.loggers.base import DummyLogger
 import numpy as np
 
 from src.AE_ClusterPipeline import AE_ClusterPipeline
-from src.datasets import MNIST, REUTERS
-from src.embbeded_datasets import embbededDataset
+from src.datasets import MNIST, REUTERS, CustomDataset
 from src.clustering_models.clusternet_modules.clusternetasmodel import ClusterNetModel
 
 from sklearn.metrics import normalized_mutual_info_score as NMI
 from sklearn.metrics import adjusted_rand_score as ARI
-from DeepDPM import cluster_acc
+from src.utils import cluster_acc, check_args
 
 
 def parse_args():
@@ -26,7 +26,7 @@ def parse_args():
 
     # Dataset parameters
     parser.add_argument("--dir", default="/path/to/dataset/", help="dataset directory")
-    parser.add_argument("--dataset", default="mnist")
+    parser.add_argument("--dataset", default="custom")
 
     # Training parameters
     parser.add_argument(
@@ -51,6 +51,11 @@ def parse_args():
 
     parser.add_argument(
         "--pretrain_path", type=str, default="./saved_models/ae_weights/mnist_e2e", help="use pretrained weights"
+    )
+    parser.add_argument(
+        "--use_labels_for_eval",
+        action = "store_true",
+        help="whether to use labels for evaluation"
     )
 
     # Model parameters
@@ -143,8 +148,7 @@ def load_pretrained(args, model):
 
         model.load_state_dict(new_state)
 
-
-if __name__ == "__main__":
+def train_clusternet_with_alternations():
     # Parse arguments
     args = parse_args()
     args.n_clusters = args.init_k
@@ -158,20 +162,20 @@ if __name__ == "__main__":
     elif args.dataset == "reuters10k":
         data = REUTERS(args, how_many=10000)
     else:
-        # Used for ImageNet-50
-        data = embbededDataset(args)
+        data = CustomDataset(args)
 
     train_loader, val_loader = data.get_loaders()
-    args.input_dim = data.input_dim
+    args.data_dim = data.data_dim
+    check_args(args, args.latent_dim)
+
 
     tags = ['DeepDPM with alternations']
     tags.append(args.tag)
     if args.offline:
-        from pytorch_lightning.loggers.base import DummyLogger
         logger = DummyLogger()
     else:
         logger = NeptuneLogger(
-                api_key='your_api_token',
+                api_key='your_API_token',
                 project_name='your_project_name',
                 experiment_name=args.tag,
                 params=vars(args),
@@ -187,7 +191,7 @@ if __name__ == "__main__":
             logger = DummyLogger()
 
     # Main body
-    model = AE_ClusterPipeline(args=args, logger=logger)
+    model = AE_ClusterPipeline(args=args, logger=logger, input_dim=data.data_dim)
     if not args.pretrain:
         load_pretrained(args, model)
     if args.save_checkpoints:
@@ -203,18 +207,30 @@ if __name__ == "__main__":
     model.to(device=device)
     DeepDPM = model.clustering.model.cluster_model
     DeepDPM.to(device=device)
+    net_pred = []
     # evaluate last model
     for i, dataset in enumerate([data.get_train_data(), data.get_test_data()]):
-        data_, labels_ = dataset.tensors[0], dataset.tensors[1].numpy()
-        pred = DeepDPM(data_.to(device=device)).argmax(axis=1).cpu().numpy()
-
-        acc = np.round(cluster_acc(labels_, pred), 5)
-        nmi = np.round(NMI(pred, labels_), 5)
-        ari = np.round(ARI(pred, labels_), 5)
-        if i == 0:
-            print("Train evaluation:")
-        else:
-            print("Validation evaluation")
-        print(f"NMI: {nmi}, ARI: {ari}, acc: {acc}, final K: {len(np.unique(pred))}")
+        data_ = dataset.data
+        pred = DeepDPM(data_.to(device=device).float()).argmax(axis=1).cpu().numpy()
+        net_pred.append(pred)
+        if args.use_labels_for_eval:
+            # Use the labels to evaluate the model
+            labels_ = dataset.targets.numpy()
+            acc = np.round(cluster_acc(labels_, pred), 5)
+            nmi = np.round(NMI(pred, labels_), 5)
+            ari = np.round(ARI(pred, labels_), 5)
+            if i == 0:
+                print("Train evaluation:")
+            else:
+                print("Validation evaluation")
+            print(f"NMI: {nmi}, ARI: {ari}, acc: {acc}, final K: {len(np.unique(pred))}")
     model.cpu()
     DeepDPM.cpu()
+
+    # Return the nets predictions for the train and validation sets
+    return net_pred
+
+
+
+if __name__ == "__main__":
+    train_clusternet_with_alternations()

@@ -12,18 +12,18 @@ from pytorch_lightning.loggers.base import DummyLogger
 import pytorch_lightning as pl
 from sklearn.metrics import normalized_mutual_info_score as NMI
 from sklearn.metrics import adjusted_rand_score as ARI
-from scipy.optimize import linear_sum_assignment as linear_assignment
 import numpy as np
 
-from src.embbeded_datasets import embbededDataset
+from src.datasets import CustomDataset
 from src.datasets import GMM_dataset
 from src.clustering_models.clusternet_modules.clusternetasmodel import ClusterNetModel
+from src.utils import check_args, cluster_acc
 
 
 def parse_minimal_args(parser):
     # Dataset parameters
     parser.add_argument("--dir", default="./pretrained_embeddings/umap_embedded_datasets/", help="dataset directory")
-    parser.add_argument("--dataset", default="MNIST_N2D")
+    parser.add_argument("--dataset", default="custom")
     # Training parameters
     parser.add_argument(
         "--lr", type=float, default=0.002, help="learning rate (default: 1e-4)"
@@ -58,9 +58,6 @@ def parse_minimal_args(parser):
         "--max_epochs", type=int, default=500,
     )
     parser.add_argument(
-        "--latent_dim", type=int, default=10, help="the input data dim for DeepDPM"
-    )
-    parser.add_argument(
         "--limit_train_batches", type=float, default=1., help="used for debugging"
     )
     parser.add_argument(
@@ -71,6 +68,11 @@ def parse_minimal_args(parser):
     )
     parser.add_argument(
         "--exp_name", type=str, default="default_exp"
+    )
+    parser.add_argument(
+        "--use_labels_for_eval",
+        action = "store_true",
+        help="whether to use labels for evaluation"
     )
     return parser
 
@@ -93,7 +95,7 @@ def run_on_embeddings_hyperparams(parent_parser):
         help="The hidden layers in the clusternet. Defaults to [50, 50].",
     )
     parser.add_argument(
-        "--transform",
+        "--transform_input_data",
         type=str,
         default="normalize",
         choices=["normalize", "min_max", "standard", "standard_normalize", "None", None],
@@ -294,9 +296,9 @@ def run_on_embeddings_hyperparams(parent_parser):
         default=0.0001,
     )
     parser.add_argument(
-        "--prior_nu",
+        "--NIW_prior_nu",
         type=float,
-        default=12.0,
+        default=None,
         help="Need to be at least codes_dim + 1",
     )
     parser.add_argument(
@@ -347,10 +349,7 @@ def run_on_embeddings_hyperparams(parent_parser):
         default="isotropic",
         choices=["diag_NIG", "isotropic", "KL_GMM_2"],
     )
-    parser.add_argument(
-        "--imbalanced",
-        action="store_true",
-    )
+    
     parser.add_argument(
         "--ignore_subclusters",
         type=bool,
@@ -365,26 +364,14 @@ def run_on_embeddings_hyperparams(parent_parser):
         "--gpus",
         default=None
     )
+    parser.add_argument(
+        "--evaluate_every_n_epochs",
+        type=int,
+        default=5,
+        help="How often to evaluate the net"
+    )
     return parser
 
-def best_cluster_fit(y_true, y_pred):
-    y_true = y_true.astype(np.int64)
-    D = max(y_pred.max(), y_true.max()) + 1
-    w = np.zeros((D, D), dtype=np.int64)
-    for i in range(y_pred.size):
-        w[y_pred[i], y_true[i]] += 1
-
-    row_ind, col_ind = linear_assignment(w.max() - w)
-    best_fit = []
-    for i in range(y_pred.size):
-        for j in range(len(row_ind)):
-            if row_ind[j] == y_pred[i]:
-                best_fit.append(col_ind[j])
-    return best_fit, row_ind, col_ind, w
-
-def cluster_acc(y_true, y_pred):
-    best_fit, row_ind, col_ind, w = best_cluster_fit(y_true, y_pred)
-    return w[row_ind, col_ind].sum() * 1.0 / y_pred.size
 
 
 def train_cluster_net():
@@ -394,18 +381,15 @@ def train_cluster_net():
     args = parser.parse_args()
 
     args.train_cluster_net = args.max_epochs
-    args.features_dim = args.latent_dim
     
     if args.dataset == "synthetic":
         dataset_obj = GMM_dataset(args)
     else:
-        dataset_obj = embbededDataset(args)
+        dataset_obj = CustomDataset(args)
     train_loader, val_loader = dataset_obj.get_loaders()
 
     tags = ['umap_embbeded_dataset']
-    if args.imbalanced:
-        tags.append("unbalanced_trainset")
-
+    
     if args.offline:
         logger = DummyLogger()
     else:
@@ -416,6 +400,8 @@ def train_cluster_net():
                 params=vars(args),
                 tags=tags
             )
+
+    check_args(args, dataset_obj.data_dim)
 
     if isinstance(logger, NeptuneLogger):
         if logger.api_key == 'your_API_token':
@@ -428,7 +414,7 @@ def train_cluster_net():
     if args.seed:
         pl.utilities.seed.seed_everything(args.seed)
     
-    model = ClusterNetModel(hparams=args, input_dim=args.latent_dim, init_k=args.init_k)
+    model = ClusterNetModel(hparams=args, input_dim=dataset_obj.data_dim, init_k=args.init_k)
     if args.save_checkpoints:
         from pytorch_lightning.callbacks import ModelCheckpoint
         checkpoint_callback = ModelCheckpoint(dirpath = f"./saved_models/{args.dataset}/{args.exp_name}")
@@ -441,16 +427,21 @@ def train_cluster_net():
     trainer = pl.Trainer(logger=logger, max_epochs=args.max_epochs, gpus=args.gpus, num_sanity_val_steps=0, checkpoint_callback=checkpoint_callback, limit_train_batches=args.limit_train_batches, limit_val_batches=args.limit_val_batches)
     trainer.fit(model, train_loader, val_loader)
 
+    print("Finished training!")
     # evaluate last model
     dataset = dataset_obj.get_train_data()
-    data, labels = dataset.tensors[0], dataset.tensors[1].numpy()
+    data = dataset.data
     net_pred = model(data).argmax(axis=1).cpu().numpy()
+    if args.use_labels_for_eval:
+        # evaluate model using labels
+        labels = dataset.targets.numpy()
+        acc = np.round(cluster_acc(labels, net_pred), 5)
+        nmi = np.round(NMI(net_pred, labels), 5)
+        ari = np.round(ARI(net_pred, labels), 5)
 
-    acc = np.round(cluster_acc(labels, net_pred), 5)
-    nmi = np.round(NMI(net_pred, labels), 5)
-    ari = np.round(ARI(net_pred, labels), 5)
-
-    print(f"NMI: {nmi}, ARI: {ari}, acc: {acc}, final K: {len(np.unique(net_pred))}")
+        print(f"NMI: {nmi}, ARI: {ari}, acc: {acc}, final K: {len(np.unique(net_pred))}")
+    
+    return net_pred
 
 
 if __name__ == "__main__":

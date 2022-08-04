@@ -101,7 +101,7 @@ class NIW_prior:
         self.prior_sigma_choice = hparams.prior_sigma_choice
         self.prior_sigma_scale = prior_sigma_scale or hparams.prior_sigma_scale
         self.niw_kappa = hparams.prior_kappa
-        self.niw_nu = hparams.prior_nu
+        self.niw_nu = hparams.NIW_prior_nu
 
     def init_priors(self, codes):
         if self.prior_mu_0_choice == "data_mean":
@@ -180,14 +180,14 @@ class NIG_prior:
         self.dim = codes_dim
         self.prior_mu_0_choice = hparams.prior_mu_0
         self.nig_V = torch.ones(self.dim) / hparams.prior_kappa
-        self.nig_a = torch.ones(self.dim) * (hparams.prior_nu / 2.0)
+        self.nig_a = torch.ones(self.dim) * (hparams.NIW_prior_nu / 2.0)
         self.prior_sigma_choice = hparams.prior_sigma_choice
         if self.prior_sigma_choice == "iso_005":
             self.nig_sigma_sq_0 = torch.ones(self.dim) * 0.005
         if self.prior_sigma_choice == "iso_0001":
             self.nig_sigma_sq_0 = torch.ones(self.dim) * 0.0001
 
-        self.nig_b = torch.ones(self.dim) * (hparams.prior_nu * self.nig_sigma_sq_0 / 2.0)
+        self.nig_b = torch.ones(self.dim) * (hparams.NIW_prior_nu * self.nig_sigma_sq_0 / 2.0)
 
     def init_priors(self, codes):
         if self.prior_mu_0_choice == "data_mean":

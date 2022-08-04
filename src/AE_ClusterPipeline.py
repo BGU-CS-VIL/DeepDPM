@@ -27,7 +27,7 @@ http://proceedings.mlr.press/v70/yang17b/yang17b.pdf.
 '''
 
 class AE_ClusterPipeline(pl.LightningModule):
-    def __init__(self, logger, args):
+    def __init__(self, logger, args, input_dim):
         super(AE_ClusterPipeline, self).__init__()
         self.args = args
         self.pretrain_logger = logger
@@ -50,7 +50,7 @@ class AE_ClusterPipeline(pl.LightningModule):
         if len(self.args.hidden_dims) == 0:
             raise ValueError("No hidden layer specified.")
 
-        self.feature_extractor = FeatureExtractor(args)
+        self.feature_extractor = FeatureExtractor(args, input_dim)
         self.args.latent_dim = self.feature_extractor.latent_dim
         self.criterion = nn.MSELoss(reduction="sum")
 
@@ -150,14 +150,15 @@ class AE_ClusterPipeline(pl.LightningModule):
             batch_X = np.vstack(batch_X)
             batch_Y = torch.cat(batch_Y)
             self.clustering.init_cluster(batch_X)
-            y_pred = self.clustering.update_assign(torch.from_numpy(batch_X))
-            init_nmi = normalized_mutual_info_score(batch_Y.numpy(), y_pred.argmax(-1))
-            self.log("train/k_means_init_nmi", init_nmi)
+            
+            if self.args.evaluate_every_n_epochs and self.current_epoch % self.args.evaluate_every_n_epochs == 0:
+                y_pred = self.clustering.update_assign(torch.from_numpy(batch_X))
+                init_nmi = normalized_mutual_info_score(batch_Y.numpy(), y_pred.argmax(-1))
+                self.log("train/k_means_init_nmi", init_nmi)
 
         if verbose:
             print("========== End initializing clusters ==========\n")
         
-
 
     def _comp_clusters(self, verbose=True):
         used_centers_for_initialization = self.clustering.clusters if self.args.init_cluster_net_using_centers else None
@@ -258,11 +259,11 @@ class AE_ClusterPipeline(pl.LightningModule):
             self.pretrain = False
             print("Saving weights...")
             torch.save(self.state_dict(), f"./saved_models/{self.args.dataset}_{self.current_epoch}_{datetime.now()}")
-            print("Great success")
             self._init_clusters()
         if self.args.alternate:
             if self.current_epoch >= self.args.epoch and self.current_epoch % self.args.retrain_cluster_net_every == 0 and not self.pretrain:
                 self._comp_clusters()
+                print("========== Finished clustering ==========")
 
     def validation_step(self, batch, batch_idx):
         x, y = batch
@@ -316,14 +317,14 @@ class AE_ClusterPipeline(pl.LightningModule):
 
         avg_loss = torch.tensor(losses).mean()
         y_pred = np.vstack(y_pred).reshape(-1)
-
-        NMI = normalized_mutual_info_score(y_gt, y_pred)
-        ARI = adjusted_rand_score(y_gt, y_pred)
-        ACC_top5, ACC = training_utils.cluster_acc(torch.tensor(y_gt), torch.from_numpy(y_pred))
-        self.log("val/avg_loss", avg_loss)
-        self.log("val/NMI", NMI)
-        self.log("val/ARI", ARI)
-        self.log("val/ACC", ACC)
+        if self.args.evaluate_every_n_epochs and self.current_epoch % self.args.evaluate_every_n_epochs == 0:
+            NMI = normalized_mutual_info_score(y_gt, y_pred)
+            ARI = adjusted_rand_score(y_gt, y_pred)
+            ACC_top5, ACC = training_utils.cluster_acc(torch.tensor(y_gt), torch.from_numpy(y_pred))
+            self.log("val/avg_loss", avg_loss)
+            self.log("val/NMI", NMI)
+            self.log("val/ARI", ARI)
+            self.log("val/ACC", ACC)
 
         if not self.pretrain and self.args.log_emb != "never" and self.current_epoch in (0, 5, 10, 50, 100, 200, 400, 499, 500, 600, 700, 800, 900, 100):
             self.plot_utils.visualize_embeddings(
