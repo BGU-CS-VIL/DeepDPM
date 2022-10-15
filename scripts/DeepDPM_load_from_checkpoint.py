@@ -1,7 +1,7 @@
 import argparse
 import torch
 from src.clustering_models.clusternet_modules.clusternetasmodel import ClusterNetModel
-from src.embbeded_datasets import embbededDataset
+from src.datasets import CustomDataset
 
 # LOAD MODEL FROM CHECKPOINT
 cp_path = CHECKPOINT_PATH # E.g.: "./saved_models/MNIST_N2D/default_exp/epoch=57-step=31725.ckpt"
@@ -22,7 +22,7 @@ model = ClusterNetModel.load_from_checkpoint(
 
 # Example for inference :
 model.eval()
-dataset_obj = embbededDataset(args)
+dataset_obj = CustomDataset(args)
 _, val_loader = dataset_obj.get_loaders()
 cluster_assignments = []
 for data, label in val_loader:
