@@ -6,7 +6,7 @@ from src.datasets import CustomDataset
 # LOAD MODEL FROM CHECKPOINT
 cp_path = CHECKPOINT_PATH # E.g.: "./saved_models/MNIST_N2D/default_exp/epoch=57-step=31725.ckpt"
 cp_state = torch.load(cp_path)
-data_dim = DIMENSION OF THE DATA # E.g. for MNIST, it would be 28*28
+data_dim = DIMENSION OF THE DATA # E.g. for MNIST, it would be 10 if the network was trained on the embeedings supplied, or 28*28 otherwise.
 K = cp_state['state_dict']['cluster_net.class_fc2.weight'].shape[0] 
 hyper_param = cp_state['hyper_parameters']
 args = argparse.Namespace()
