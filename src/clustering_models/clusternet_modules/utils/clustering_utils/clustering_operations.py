@@ -430,7 +430,7 @@ def _create_subclusters(k_sub, codes, logits, logits_sub, mus_sub, pi_sub, n_sub
         use_priors = False
         # return mus, covs, pis
     elif how_to_init_mu_sub == "kmeans" or "kmeans_1d":
-        indices_k = logits.argmax(-1) == k_sub // 2
+        indices_k = logits.argmax(-1) == int(k_sub / 2)
         codes_k = codes[indices_k, :]
         if len(logits_sub) > 0:
             sub_assignment = logits_sub.argmax(-1)

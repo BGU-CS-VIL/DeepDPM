@@ -361,19 +361,20 @@ class ClusterNetModel(pl.LightningModule):
                     random_state=0,
                     device=self.device,
                 )
-                if (self.train_gt < 0).any():
-                    # some samples don't have label, e.g., stl10
-                    gt = self.train_gt[self.train_gt > -1]
-                    init_labels = init_labels[self.train_gt > -1]
-                else:
-                    gt = self.train_gt
-                if len(gt) > 2 * (10 ** 5):
-                    # sample only a portion of the codes
-                    gt = gt[:2 * (10**5)]
-                init_nmi = normalized_mutual_info_score(gt, init_labels)
-                init_ari = adjusted_rand_score(gt, init_labels)
-                self.log("cluster_net_train/init_nmi", init_nmi)
-                self.log("cluster_net_train/init_ari", init_ari)
+                if self.hparams.use_labels_for_eval:
+                    if (self.train_gt < 0).any():
+                        # some samples don't have label, e.g., stl10
+                        gt = self.train_gt[self.train_gt > -1]
+                        init_labels = init_labels[self.train_gt > -1]
+                    else:
+                        gt = self.train_gt
+                    if len(gt) > 2 * (10 ** 5):
+                        # sample only a portion of the codes
+                        gt = gt[:2 * (10**5)]
+                    init_nmi = normalized_mutual_info_score(gt, init_labels)
+                    init_ari = adjusted_rand_score(gt, init_labels)
+                    self.log("cluster_net_train/init_nmi", init_nmi)
+                    self.log("cluster_net_train/init_ari", init_ari)
                 if self.hparams.log_emb == "every_n_epochs" and (self.current_epoch % self.hparams.log_emb_every == 0 or self.current_epoch == 1):
                     self.plot_utils.visualize_embeddings(
                         self.hparams,
@@ -391,7 +392,7 @@ class ClusterNetModel(pl.LightningModule):
                     perm = torch.randperm(self.train_gt.size(0))
                     idx = perm[:10000]
                     sampled_points = self.codes[idx]
-                    sampled_labeled = self.train_gt[idx]
+                    sampled_labeled = self.train_gt[idx] if self.hparams.user_labels_for_eval else None
                     self.plot_utils.visualize_embeddings(
                         self.hparams,
                         self.logger,
@@ -535,7 +536,7 @@ class ClusterNetModel(pl.LightningModule):
                         self.logger,
                         self.codes_dim,
                         vae_means=self.codes,
-                        vae_labels=self.train_gt,
+                        vae_labels=None if not self.hparams.use_labels_for_eval else self.train_gt,
                         val_resp=self.train_resp,
                         current_epoch=self.current_epoch,
                         y_hat=None,
@@ -545,7 +546,7 @@ class ClusterNetModel(pl.LightningModule):
                     if self.hparams.dataset == "synthetic":
                         if self.split_performed or self.merge_performed:
                             self.plot_utils.update_colors(self.split_performed, self.mus_ind_to_split, self.mus_inds_to_merge)
-                        else:
+                        elif self.hparams.use_labels_for_eval:
                             self.plot_utils.plot_cluster_and_decision_boundaries(samples=self.codes, labels=self.train_resp.argmax(-1), gt_labels=self.train_gt, net_centers=self.mus, net_covs=self.covs, n_epoch=self.current_epoch, cluster_net=self)
                     if self.current_epoch in (0, 1, 2, 3, 4, 5, 10, 100, 200, 300, 400, 500, 549, self.hparams.start_sub_clustering, self.hparams.start_sub_clustering+1) or self.split_performed or self.merge_performed:
                         self.plot_histograms(for_thesis=True)
