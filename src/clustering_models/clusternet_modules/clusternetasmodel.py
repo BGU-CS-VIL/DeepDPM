@@ -392,7 +392,7 @@ class ClusterNetModel(pl.LightningModule):
                     perm = torch.randperm(self.train_gt.size(0))
                     idx = perm[:10000]
                     sampled_points = self.codes[idx]
-                    sampled_labeled = self.train_gt[idx] if self.hparams.user_labels_for_eval else None
+                    sampled_labeled = self.train_gt[idx] if self.hparams.use_labels_for_eval else None
                     self.plot_utils.visualize_embeddings(
                         self.hparams,
                         self.logger,
