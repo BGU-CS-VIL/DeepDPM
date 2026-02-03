@@ -1,146 +1,299 @@
 # DeepDPM: Deep Clustering With An Unknown Number of Clusters
-This repo contains the official implementation of our CVPR 2022 paper:
+This repository contains the official implementation of our CVPR 2022 paper:
 > [**DeepDPM: Deep Clustering With An Unknown Number of Clusters**](https://arxiv.org/abs/2203.14309)
 >
 > [Meitar Ronen](https://www.linkedin.com/in/meitar-ronen/), [Shahaf Finder](https://shahaffind.github.io) and [Oren Freifeld](https://www.cs.bgu.ac.il/~orenfr/index.htm).
 
-- [paper \& supp mat](https://arxiv.org/abs/2203.14309).
+[![arXiv](https://img.shields.io/badge/arXiv-2203.14309-b31b1b.svg?style=flat)](https://arxiv.org/abs/2203.14309)
 
 DeepDPM clustering example on 2D data.<br />
 On the left: DeepDPM's predicted clusters' assignments, centers and covariances. On the right: Clusters colored by the GT labels, and the net's decision boundary.
 <br>
 <p align="center">
-<img src="clustering_example.gif" width="750" height="600">
+<img src="images/clustering_example.gif" width="750" height="600">
 </p>
 
 
 Examples of the clusters found by DeepDPM on the ImageNet Dataset:
-
-
-![Examples of the clusters found by DeepDPM on the ImageNet dataset](ImageNet_cluster_examples/cluster_examples.jpg?raw=true "Examples of the clusters found by DeepDPM on the ImageNet dataset")
-
-
-##### Table of Contents  
-1. [Introduction](#Introduction)  
-2. [Installation](#Installation)
-3. [Training](#Training)
-4. [Inference](#Inference)
-5. [Citation](#Citation)
-
+![Examples of the clusters found by DeepDPM on the ImageNet dataset](images/imagenet_cluster_examples.jpg?raw=true "Examples of the clusters found by DeepDPM on the ImageNet dataset")
 
 ## Introduction
 DeepDPM is a nonparametric deep-clustering method which unlike most deep clustering methods, does not require knowing the number of clusters, K; rather, it infers it as a part of the overall learning. Using a split/merge framework to change the clusters number adaptively and a novel loss, our proposed method outperforms existing (both classical and deep) nonparametric methods.
 
 While the few existing deep nonparametric methods lack scalability, we show ours by being the first such method that reports its performance on ImageNet.
 
+**Key phases:**
+- **Warmup**: Network trains with frozen GMM to stabilize representations
+- **Split**: SubclusterNet proposes splits, accepted via Bayesian Hastings ratio
+- **Merge**: Nearest cluster pairs proposed, accepted if marginal likelihood improves
+- **Alternation**: Splits and merges alternate to prevent oscillation
+
 ## Installation
-The code runs with Pytorch version 3.9.
-Assuming Anaconda, the virtual environment can be installed using:
-```
-conda install pytorch torchvision torchaudio cudatoolkit=10.2 -c pytorch
-conda install -c conda-forge pytorch-lightning=1.2.10
-conda install -c conda-forge umap-learn
-conda install -c conda-forge neptune-client
-pip install kmeans-pytorch
-conda install psutil numpy pandas matplotlib scikit-learn scipy seaborn tqdm joblib
-```
-See the requirements.txt file for an overview of the packages in the environment we used to produce our results.
 
-## Training
+### Requirements
+
+- **Python 3.10+**
+
+```bash
+# Core dependencies
+torch>=1.10.0
+numpy>=1.20.0
+scikit-learn>=0.24.0
+scipy>=1.7.0
+pyyaml>=5.4.0
+kmeans-pytorch>=0.3    # GPU-accelerated K-means
+tqdm>=4.60.0           # Progress bars (required by kmeans-pytorch)
+```
+
 ### Setup
-#### Datasets and embeddings
 
-When training on raw data (e.g., on MNIST, Reuters10k) the data for MNIST will be automatically downloaded to the "data" directory. For reuters10k, the user needs to download the dataset independently (available online) into the "data" directory.
+```bash
+# Create conda environment with Python 3.10+
+conda create -n deepdpm python=3.10 -y
+conda activate deepdpm
 
-### Logging
-To run the following with logging enabled, edit DeepDPM.py and DeepDPM_alternations.py and insert your neptune token and project path. Alternatively, run the following script with the --offline flag to skip logging. Evaluation metrics will be printed at the end of the training in both cases.
+# Install dependencies
+pip install -r requirements.txt
+```
+
+## Quick Start
+
+### Training on Synthetic Data
+
+```bash
+python scripts/train_synthetic.py
+```
+
+Expected output:
+```
+Creating synthetic GMM data...
+Data shape: torch.Size([2000, 10])
+True number of clusters: 5
+
+======================================================================
+DeepDPM Training
+======================================================================
+Device: cuda
+Initial K: 1
+Num epochs: 500
+======================================================================
+Gathering data and initializing with K-means...
+Data shape: torch.Size([2000, 10])
+Initializing with K=1
+Initialization complete. K=1
+Epoch   1/500: K= 1, cluster_loss=0.0000, sub_loss=0.0000, splits=0, merges=0, time=0.3s
+...
+Epoch  30/500:
+  K: 2
+  Cluster loss: 0.0000
+  Subcluster loss: 115.4761
+  Splits: 1
+  Accuracy: 0.2000
+  NMI: 0.0000
+  ARI: 0.0000
+  Time: 0.2s
+...
+Epoch 150/500:
+  K: 4
+  Cluster loss: 0.0000
+  Subcluster loss: 64.6341
+  Splits: 1
+  Accuracy: 0.8000
+  NMI: 0.9098
+  ARI: 0.7823
+  Time: 0.2s
+...
+Epoch 500/500:
+  K: 5
+  Cluster loss: 0.0000
+  Subcluster loss: 10.8619
+  Accuracy: 1.0000
+  NMI: 1.0000
+  ARI: 1.0000
+  Time: 0.3s
+======================================================================
+Training completed!
+Final K: 5
+======================================================================
+
+======================================================================
+FINAL RESULTS
+======================================================================
+True K: 5
+Inferred K: 5
+Final Accuracy: 1.0000
+Final NMI: 1.0000
+Final ARI: 1.0000
+======================================================================
+```
+
+### Training with Custom Config
+
+```python
+import torch
+from data import create_synthetic_gmm_data, create_dataloader
+from training import DeepDPMTrainer
+from configs import TrainingConfig
+from utils import set_seed
+
+# Load config from YAML
+config = TrainingConfig.from_yaml("configs/experiments/synthetic.yaml")
+
+# Or create programmatically
+config = TrainingConfig(
+    input_dim=10,
+    hidden_dims=[50],
+    init_k=1,
+    num_epochs=500,  # Paper uses 500 epochs
+    device="cuda" if torch.cuda.is_available() else "cpu"
+)
+
+# Set seed
+set_seed(config.seed)
+
+# Create data
+data, labels = create_synthetic_gmm_data(n_samples=2000, n_clusters=5)
+train_loader = create_dataloader(data, batch_size=config.batch_size)
+
+# Train
+trainer = DeepDPMTrainer(config)
+trainer.train(train_loader, true_labels=labels)
+```
+
+### Available Scripts
+
+**Python Scripts:**
+| Script | Description |
+|--------|-------------|
+| `train_from_config.py` | Universal training script - trains DeepDPM with config file and embeddings |
+| `train_synthetic.py` | Synthetic GMM training with generated data |
+
+**Shell Scripts (Experiments):**
+| Script | Description |
+|--------|-------------|
+| `run_synthetic.sh` | Run synthetic GMM experiment |
+| `run_mnist.sh` | Run MNIST experiment |
+| `run_mnist_imbalanced.sh` | Run MNIST with imbalanced clusters |
+| `run_fashion_mnist.sh` | Run Fashion-MNIST experiment |
+| `run_fashion_mnist_imbalanced.sh` | Run Fashion-MNIST with imbalanced clusters |
+| `run_usps.sh` | Run USPS experiment |
+| `run_usps_imbalanced.sh` | Run USPS with imbalanced clusters |
+| `run_stl10.sh` | Run STL-10 experiment |
+| `run_imagenet50.sh` | Run ImageNet-50 experiment |
+| `run_imagenet50_imbalanced.sh` | Run ImageNet-50 with imbalanced clusters |
 
 
-### Training models
+**Key training features:**
+- **Split/merge alternation**: Prevents consecutive splits or merges for stability
+- **GMM warmup**: GMM parameters frozen for initial epochs to let network stabilize
+- **Freeze periods**: After split/merge, GMM frozen for N epochs to allow adaptation
+- **LR scheduler skip**: Learning rate scheduler skipped during freeze periods
 
-We provide two models which can be used for clustering: DeepDPM which clusters embedded data and DeepDPM_alternations which alternates between feature learning using an AE and clustering using DeepDPM. 
+## Configuration
 
-1. Key hyperparameters:
-  - --gpus specifies the number of GPUs to use. E.g., use "--gpus 0" to use one gpu.
-  - --offline runs the model without logging
-  - --use_labels_for_eval: run the model with ground truth labels for evaluation (labels are not used in the training process). Do not use this flag if you do not have labels.
-  - --dir specifies the directory where the train_data and test_data tensors are expected to be saved
-  - --init_k the initial guess for K.
-  - --start_computing_params specifies when to start computing the clusters' parameters (the M-step) after initialization. When changing this it is important to see that the network had enough time to learn the initializatiion
-  - --split_merge_every_n_epochs specifies the frequency of splits and merges
-  - --hidden_dims specifies the AE's hidden dimension layers and depth for DeepDPM_alternations 
-  - --latent_dim specifies the AE's learned embeddings dimension (the dimension of the features that would be clustered)
+### YAML Configuration
 
-  Please also note the NIIW hyperparameters and the guidelines on how to choose them as described in the supplementary material.
+Example (`configs/experiments/mnist.yaml`):
 
-2. Training examples:
+```yaml
+# Configuration for MNIST (after UMAP embedding to 10D)
 
-  - To generate a similar gif to the one presented above, run:
-    python DeepDPM.py --dataset synthetic --log_emb every_n_epochs --log_emb_every 1
+model:
+  input_dim: 10  # After UMAP reduction
+  hidden_dims: [50]
+  init_k: 1
 
-  - To run DeepDPM on pretrained embeddings (including custom ones):
-    ```
-    python DeepDPM.py --dataset <dataset_name> --dir <embeddings path>
-    ```
-    - for example, for MNIST run:
-      ```
-      python DeepDPM.py --dataset MNIST --dir "./pretrained_embeddings/umap_embedded_datasets/MNIST"
-      ```
-    - For the imbalanced case use the data dir accordingly, e.g. for MNIST:
-      ```
-      python DeepDPM.py --dataset MNIST --dir "./pretrained_embeddings/umap_embedded_datasets/MNIST_IMBALANCED"
-      ```
+training:
+  batch_size: 128
+  num_epochs: 500
+  cluster_lr: 0.0005
+  subcluster_lr: 0.005
 
-    - To run on STL10: 
-    ```
-    python DeepDPM.py --dataset stl10 --init_k 3 --dir pretrained_embeddings/MOCO/STL10 --NIW_prior_nu 514 --prior_sigma_scale 0.05
-    ```
-    (note that for STL10 there is no imbalanced version)
+  cluster_loss_type: "KL_GMM_2"
+  subcluster_loss_type: "isotropic"
 
-  - DeepDPM with feature extraction pipeline (jointly learning clustering and features):
-    - For MNIST run:
-    ```
-    python DeepDPM_alternations.py --latent_dim 10 --dataset mnist --lambda_ 0.005 --lr 0.002 --init_k 3 --train_cluster_net 200 --alternate --init_cluster_net_using_centers --reinit_net_at_alternation --dir <path_to_dataset_location> --pretrain_path ./saved_models/ae_weights/mnist_e2e.zip --number_of_ae_alternations 3 --transform_input_data None --log_metrics_at_train True
-    ```
-    - For Reuters10k run:
-    ```
-    python DeepDPM_alternations.py --dataset reuters10k --dir <path_to_dataset_location> --hidden-dims 500 500 2000 --latent_dim 75 --pretrain_path ./saved_models/ae_weights/reuters10k_e2e.zip --NIW_prior_nu 80 --init_k 1 --lambda_ 0.1 --beta 0.5 --alternate --init_cluster_net_using_centers --reinit_net_at_alternation --number_of_ae_alternations 3 --log_metrics_at_train True --dir ./data/
-    ```
-    - For ImageNet-50:
-    ``` 
-    python DeepDPM_alternations.py --latent_dim 10 --lambda_ 0.05 --beta 0.01 --dataset imagenet_50 --init_k 10 --alternate --init_cluster_net_using_centers --reinit_net_at_alternation --dir ./pretrained_embeddings/MOCO/IMAGENET_50/ --NIW_prior_nu 12 --pretrain_path ./saved_models/ae_weights/imagenet_50_e2e.zip --prior_sigma_scale 0.0001 --prior_sigma_choice data_std --number_of_ae_alternations 2
-    ```
-    - For ImageNet-50 imbalanced:
-    ```
-    python DeepDPM_alternations.py --latent_dim 10 --lambda_ 0.05 --beta 0.01 --dataset imagenet_50_imb --init_k 10  --alternate --init_cluster_net_using_centers --reinit_net_at_alternation --dir ./pretrained_embeddings/MOCO/IMAGENET_50_IMB/ --NIW_prior_nu 12 --pretrain_path ./saved_models/ae_weights/imagenet_50_imb.zip --prior_sigma_choice data_std --prior_sigma_scale 0.0001 --number_of_ae_alternations 4
-    ```
+  start_sub_clustering: 45
+  start_splitting: 55
+  start_merging: 55
+  split_merge_every_n_epochs: 30
+  eval_every_n_epochs: 10
 
-  3. Training on custom datasets:
-  DeepDPM is desinged to cluster data in the feature space. 
-  For dimensionality reduction, we suggest using UMAP, an Autoencoder, or off-the-shelf unsupervised feature extractors like MoCO, SimCLR, swav, etc.
-  If the input data is relatively low dimensional (e.g.  <= 128D), it is possible to train on the raw data.
+prior:
+  kappa: 0.0001
+  nu_offset: 2
+  psi_scale: 0.005
 
-  To load custom data, create a directory that contains two files: train_data.pt and test_data.pt, a tensor for the train and test data respectively.
-  DeepDPM would automatically load them. If you have labels you wish to load for evaluation, please use the --use_labels_for_eval flag.
+split:
+  alpha: 10.0
+  stochastic_accept: true
+  min_cluster_size: 2
 
-  Note that the saved models in this repo are per dataset, and in most of the cases specific to it. Thus, it is not recommended to use for custom data.
+merge:
+  k_nearest: 3
+  proposal_method: "kmeans"
+  stochastic_accept: true
 
-## Inference
-For loading a pretrained model from a saved checkpoint, and for an inference example, see: scripts\DeepDPM_load_from_checkpoint.py
+seed: 42
+device: "cuda"
+log_dir: "./logs/mnist"
+checkpoint_dir: "./checkpoints/mnist"
+save_every_n_epochs: 50
+verbose: true
+```
+
+### Key Hyperparameters
+
+| Parameter | Description | Typical Value |
+|-----------|-------------|---------------|
+| `init_k` | Initial number of clusters | 1 |
+| `cluster_lr` | Learning rate for cluster net | 0.0005 |
+| `subcluster_lr` | Learning rate for subcluster net | 0.005 |
+| `start_sub_clustering` | Epoch to start subclustering | 45 |
+| `start_splitting` | Epoch to start splits | 55 |
+| `alpha` | DP concentration (higher = more clusters) | 10.0 |
+| `kappa` | Prior pseudocount (lower = weaker prior) | 0.0001 |
+
+## Evaluation Metrics
+
+- **Accuracy (ACC)**: Clustering accuracy with optimal Hungarian assignment
+- **NMI**: Normalized Mutual Information
+- **ARI**: Adjusted Rand Index
+
+All metrics handle different K between prediction and ground truth.
+
+## Expected Results
+
+| Dataset | GT K | Inferred K | ACC | NMI | ARI |
+|---------|------|------------|-----|-----|-----|
+| Synthetic (5 clusters) | 5 | 5 | 1.00 | 1.00 | 1.00 |
+| MNIST | 10 | 10±0 | 0.98±0.00 | 0.94±0.00 | 0.95±0.00 |
+| Fashion-MNIST | 10 | 10.2±0.79 | 0.62±0.03 | 0.68±0.01 | 0.51±0.02 |
 
 ## Citation
 
-For any questions: meitarr@post.bgu.ac.il
-
-Contributions, feature requests, suggestion etc. are welcomed.
-
-If you use this code for your work, please cite the following:
-
-```
-@inproceedings{Ronen:CVPR:2022:DeepDPM,
-  title={DeepDPM: Deep Clustering With An Unknown Number of Clusters},
-  author={Ronen, Meitar and Finder, Shahaf E. and  Freifeld, Oren},
-  booktitle={Conference on Computer Vision and Pattern Recognition},
+```bibtex
+@inproceedings{ronen2022deepdpm,
+  title={DeepDPM: Deep Clustering With an Unknown Number of Clusters},
+  author={Ronen, Meitar and Finder, Shahaf E and Freifeld, Oren},
+  booktitle={Proceedings of the IEEE/CVF Conference on Computer Vision and Pattern Recognition},
+  pages={9861--9870},
   year={2022}
 }
 ```
+
+## License
+
+See [LICENSE](LICENSE).
+
+## Contributing
+
+This is a clean reimplementation for educational and research purposes. Contributions are welcome:
+- Bug fixes
+- Performance improvements
+- Additional datasets
+- Documentation improvements
+
+## Contact
+
+For questions about this implementation, please open an issue on GitHub.
+

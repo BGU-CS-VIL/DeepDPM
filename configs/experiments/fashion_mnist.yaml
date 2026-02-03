@@ -1,0 +1,43 @@
+# Configuration for Fashion-MNIST (after UMAP embedding to 10D)
+
+model:
+  input_dim: 10  # After UMAP reduction
+  hidden_dims: [50]
+  init_k: 1
+
+training:
+  batch_size: 128
+  num_epochs: 500
+  cluster_lr: 0.0005
+  subcluster_lr: 0.005
+
+  cluster_loss_type: "KL_GMM_2"
+  subcluster_loss_type: "isotropic"
+
+  start_sub_clustering: 45
+  start_splitting: 55
+  start_merging: 55
+  split_merge_every_n_epochs: 30
+  eval_every_n_epochs: 10
+
+prior:
+  kappa: 0.0001
+  nu_offset: 2
+  psi_scale: 0.005
+
+split:
+  alpha: 10.0
+  stochastic_accept: true
+  min_cluster_size: 2
+
+merge:
+  k_nearest: 3
+  proposal_method: "kmeans"
+  stochastic_accept: true
+
+seed: 42
+device: "cuda"
+log_dir: "./logs/fashion_mnist"
+checkpoint_dir: "./checkpoints/fashion_mnist"
+save_every_n_epochs: 50
+verbose: true

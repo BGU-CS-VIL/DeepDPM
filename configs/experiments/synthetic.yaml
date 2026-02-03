@@ -1,0 +1,46 @@
+# Configuration for synthetic GMM data
+
+model:
+  input_dim: 10
+  hidden_dims: [100, 50]  # Two hidden layers to prevent mode collapse
+  init_k: 1
+
+training:
+  batch_size: 128
+  num_epochs: 200
+  cluster_lr: 0.005  # Increased from 0.0005 for faster convergence
+  subcluster_lr: 0.005
+
+  cluster_loss_type: "KL_GMM_2"
+  subcluster_loss_type: "isotropic"
+  cluster_loss_weight: 1.0
+  subcluster_loss_weight: 1.0
+
+  gmm_warmup_epochs: 20  # Let ClusterNet learn from K-means init before M-step updates
+  start_sub_clustering: 30
+  start_splitting: 50
+  start_merging: 50
+  split_merge_every_n_epochs: 20
+  eval_every_n_epochs: 10
+
+prior:
+  kappa: 0.0001
+  nu_offset: 2
+  psi_scale: 0.005
+
+split:
+  alpha: 10.0
+  stochastic_accept: true
+  min_cluster_size: 2
+
+merge:
+  k_nearest: 3
+  proposal_method: "kmeans"
+  stochastic_accept: true
+
+seed: 42
+device: "cuda"
+log_dir: "./logs/synthetic"
+checkpoint_dir: "./checkpoints/synthetic"
+save_every_n_epochs: 50
+verbose: true

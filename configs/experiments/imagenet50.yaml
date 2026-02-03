@@ -1,0 +1,45 @@
+# Configuration for ImageNet-50 with MOCO embeddings (128D)
+# Based on paper: DeepDPM CVPR 2022, Table 4 (non-AE version)
+# Expected results: ACC ~0.64, NMI ~0.75, ARI ~0.49, inferred K ~52
+
+model:
+  input_dim: 128  # MOCO embeddings
+  hidden_dims: [50]
+  init_k: 10  # From paper: "For both balanced and imbalanced cases, we initialized DeepDPM with K = 10"
+
+training:
+  batch_size: 128
+  num_epochs: 500
+  cluster_lr: 0.0005
+  subcluster_lr: 0.005
+
+  cluster_loss_type: "KL_GMM_2"
+  subcluster_loss_type: "isotropic"
+
+  start_sub_clustering: 45
+  start_splitting: 55
+  start_merging: 55
+  split_merge_every_n_epochs: 30
+  eval_every_n_epochs: 10
+
+prior:
+  kappa: 0.0001
+  nu_offset: 2  # nu = 128 + 2 = 130
+  psi_scale: 0.05  # Same as STL10 (both use MOCO features)
+
+split:
+  alpha: 10.0
+  stochastic_accept: true
+  min_cluster_size: 2
+
+merge:
+  k_nearest: 3
+  proposal_method: "kmeans"
+  stochastic_accept: true
+
+seed: 42
+device: "cuda"
+log_dir: "./logs/imagenet50"
+checkpoint_dir: "./checkpoints/imagenet50"
+save_every_n_epochs: 50
+verbose: true
